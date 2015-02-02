@@ -1,0 +1,171 @@
+from os.path import isfile, join
+from os import listdir
+import os
+import re
+import sys
+import os.path 
+
+SRCS = []
+OBJS = []
+workingdirectory = []
+PROG = ''
+CC = ''
+LDFLAGS = ''
+LDLIBS = ''
+PROG = ''
+CXX = ''
+CPPFLAGS = ''
+CFLAGS = ''
+CXXFLAGS = ''
+
+
+SourceCodeFile = []
+Hfile = []
+
+def IfFileGoDeeper(sourcefile):
+
+	f = open(sourcefile, 'r')
+	line = f.readlines()
+	for item in line:
+		if(item.startswith('#include')):
+			if(re.search('.h"$',item) != None):
+				# print('==============PASS111111111111')
+				return True
+		else:
+
+			return False
+	f.close()
+
+
+def IfFileExistBefore(sourcefile):
+	# print('>>>>>>>>>>>>>>>>')
+	if sourcefile in Hfile:
+		# print('====================PASS222222222222222')
+		return False
+	else:
+		# print('============================NOTNOTNOTFINDFIND')
+		return True
+
+def IfFileInCurrentDir(sourcefile):
+	if sourcefile in workingdirectory:
+		# print('====================PASS33333333333333')
+		return True
+	else:
+		return False
+
+def getdependencies(sourcefile):
+	if (not(IfFileInCurrentDir(sourcefile))):
+		return sourcefile
+
+	if not(IfFileGoDeeper(sourcefile)):
+         try:
+            f = open(sourcefile,'r')
+            line = f.readlines()
+            for item in line:
+                if(item.startswith('#include')):
+                    if(re.search('.h"$',item) != None):
+                        getHeadFile = re.search(r'#include\s+\"(.+\.\w+)\"', item)
+                        # templist.append(getHeadFile.group(1))
+                        Hfile.append(getHeadFile.group(1))
+                        # print('>>>>>>>>>>>>',Hfile)
+            f.close()
+         except:
+             print('This file is not accessible')
+         return sourcefile
+
+	for item in DEPENDENCYLIST(sourcefile):
+		if not(IfFileExistBefore(item)):
+			return sourcefile
+	
+
+	for item in DEPENDENCYLIST(sourcefile): 
+		# print('>>>>>>>>>>>>>',item)
+		if (not(IfFileInCurrentDir(sourcefile))):
+			print(sourcefile+': contains #include for missing file',item)
+		else:
+			# print(' IT HAS: ',DEPENDENCYLIST(sourcefile))
+			Hfile.append(item)
+			getdependencies(item)
+
+def DEPENDENCYLIST(sourcefile):
+    try:
+        templist = []
+        if (not(IfFileInCurrentDir)):
+            return ['error']
+        f = open(sourcefile,'r')
+        line = f.readlines()
+        for item in line:
+            if(item.startswith('#include')):
+                    if(re.search('.h"$',item) != None):
+                        getHeadFile = re.search(r'#include\s+\"(.+\.\w+)\"', item)
+                        templist.append(getHeadFile.group(1))
+    except:
+       print('file is not valid input')
+       f.close()
+	# print('>>>>>>>>>>>>',templist)
+    return templist
+		
+def replace_last(source_string, replace_what, replace_with):
+    head, sep, tail = source_string.rpartition(replace_what)
+    return head + replace_with + tail
+
+
+def writefile():
+	for files in workingdirectory:
+		if(files[-2:] == '.c' or files[-2:] == '.C' or files[-4:] == '.cpp' or files[-3:] == '.cc'):
+			print('the file passing in:', files)
+			SourceCodeFile.append(files)
+			getdependencies(files)
+	print('HFILE:',Hfile)
+	f = open('Makefile','w')
+	for filename in workingdirectory:
+		if(re.search('w*.c$',filename) != None):
+			SRCS.append(filename)
+			OBJS.append(replace_last(filename,'.c','.o'))
+		if(re.search('w*.cpp$',filename) != None):
+			SRCS.append(filename)
+			OBJS.append(replace_last(filename,'.cpp','.o'))
+		if(re.search('w*.C$',filename) != None):
+			SRCS.append(filename)
+			OBJS.append(replace_last(filename,'.C','.o'))
+		if(re.search('w*.C$',filename) != None):
+			SRCS.append(filename)
+			OBJS.append(replace_last(filename,'.cc','.o'))
+
+	f.write("SRCS = %s\n" % ' '.join(SRCS))
+	f.write("OBJS = %s\n" % ' '.join(OBJS))
+	f.write("PROG = %s\n"%' '.join(PROG))
+	f.write("CC = %s\n"%' '.join(CC))
+	f.write("LDFLAGS = %s\n"%' '.join(LDFLAGS))
+	f.write("LDLIBS = %s\n"%' '.join(LDLIBS))
+	f.write("PROG = %s\n"%' '.join(PROG))
+	f.write("CPPFLAGS = %s\n"%' '.join(CPPFLAGS))
+	f.write("CFLAGS = %s\n"%' '.join(CFLAGS))
+	f.write("CXXFLAGS = %s\n"%' '.join(CXXFLAGS))
+	f.write('\n')
+	f.write('PROG = prog.exe\n')
+	f.write('$(PROG): $(OBJS)\n\t$(CC) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $(PROG)\n')
+	for i in range(0,len(SRCS)):
+		if (SRCS[i][-2:] == '.c'):
+				f.write('\n%s: %s\n\t$(CC) $(CPPFLAGS) $ (CFLAGS) -c %s' % (OBJS[i],SRCS[i],SRCS[i]))
+		if (SRCS[i][-2:] == '.C' or SRCS[i][-4:] == '.cpp' or SRCS[i][-3:] == '.cc'):
+				f.write('\n%s: %s\n\t$(CXX) $ (CPPFLAGS) $(CXXFLAGS) -c %s' % (OBJS[i],SRCS[i],SRCS[i]))
+	# f.write("$%s: "%PROG,"$%s\n\t"%OBJS,"$%s "%CC,"$%s "%LDFLAGS,\
+	# 	"$%s "%OBJS,"$%S "%LDLIBS "-O $%S"%PROG)
+	
+
+	f.write('\nclean : \n\trm -f $(OBJS)\n')
+	f.close()
+
+def main():
+	if len(sys.argv) == 2:
+		folderpath = sys.argv[1]
+		os.chdir(folderpath)
+	
+	for filename in os.listdir(os.getcwd()):
+		if isfile(join(os.getcwd(),filename)):
+			workingdirectory.append(filename)
+	print("ALLFILES: ", workingdirectory)
+
+	writefile()
+main()
